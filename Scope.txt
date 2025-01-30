@@ -1,0 +1,37 @@
+	1. Smart Contract Development					
+	1. Writing the smart contract code in up to date version of Solidity using Foundry framework					
+	2. Testing the smart contract thoroughly in a local development environment or testnet using Foundry.					
+	3. Auditing the code for vulnerabilities with a third party auditor.					
+						
+	2. Smart Contract Compilation					
+	1. Converting code into bytecode using Solc or other compiler(No part needed as it can be done easily/automatically while compiling)					
+						
+	3. Pre Deploayment Testing					
+	1. Extensive pre deployment testing to avoid bugs or vulnerabilities (using Mocha/Chai, Forge or other) in sumulated of Foundry. 					
+						
+	4. Deployment Preparation					
+	1. Selecting wallet (like Metamask for EVM, LinkTron for Tron)					
+	2. Locating funds for gas fees					
+						
+	5. Deployment					
+	1. Should be able to deploy using Remix IDE for EVM or TronIDE for Tron					
+						
+	6. Post Deployment Verification					
+	1. Post-deployment verification of the contract for transparency on explorers like Etherscan or other.				
+						
+	7. Post Deployment Monitoring and Interaction					
+	1. Test the Contract by using tools like Remix, Hardhat, or Dapp Tools.					
+	2. Monitoring and track the activity using blockchain explorers
+	3. Integrating with frontend (e.g., with React.js and Web3.js or ethers.js) to interact with the contract(with additional budget).		
+
+	8. List of the important features GELT Token Have:
+	* Upgradeable (only in terms of tax fee)
+	* Mintable
+	* Burnable
+	* Black List
+	* Ownable
+				
+						
+									
+						
+						

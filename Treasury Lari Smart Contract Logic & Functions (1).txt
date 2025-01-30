@@ -1,0 +1,43 @@
+Key Attributes
+
+1. Name and Symbol: The stablecoin is named "Treasury Lari" with a symbol "GELT".
+2. Decimals: The token uses six decimal places, aligning with the USDC/USDT standard.
+3. Total Supply: Tracks the total number of tokens in circulation.
+4. Ownership: The contract identifies an owner, typically the entity responsible for issuing or managing the token.
+5. Compatibility: Contract will be CEX/DEX compatible. 
+
+Core Functionalities
+
+Token Transfers
+
+1. Transfer: Allows users to send tokens directly to another address. It checks if the sender has sufficient balance and ensures the recipient is a valid address.
+2. Allowance System: Users can authorize another address (a spender) to spend tokens on their behalf, up to a specified limit.
+3. Transfer From: Enables transferring tokens on behalf of another user, utilizing the allowance system. It verifies the sender has authorization and that the source address has sufficient funds.
+4. Tax: Contract will have customable tax on transfers and swaps as well. 
+
+Balance and Allowance Queries
+
+1. Balance Inquiry: Users can check the balance of any account.
+2. Allowance Inquiry: Displays the remaining allowance granted to a spender by an owner.
+
+Minting and Burning
+
+1. Minting: The contract owner can create new tokens and allocate them to a specific address, increasing the total supply. This feature is typically used to manage liquidity or respond to demand.
+2. Burning: The contract owner can remove tokens from circulation by deducting them from a specified address, reducing the total supply. This might be used to stabilize the token's value or handle specific business needs.
+
+Access Control
+
+1. Only Owner Restriction: Certain operations, like minting and burning, are restricted to the contract owner to prevent unauthorized changes to the token supply.
+2. Contract will have permit feature
+3. Contract will have black list
+4. Contract will have pause function
+Events
+
+Transfer Event: Logs every token transfer, capturing the sender, recipient, and amount for transparency.
+Approval Event: Logs every approval action, recording the owner, spender, and allowed amount.
+
+Summary
+
+This smart contract implements essential stablecoin functionalities: transferring tokens, managing allowances, and allowing for supply adjustments (minting and burning). It ensures robust security by restricting sensitive operations to the owner and maintains transparency through event logging. Its design aligns with industry standards for stablecoins like USDC and USDT.
+
+1. Newly minted tokens first will sit in Treasury Lari wallet, which means that they are not in circulation yet. Only after these tokens will be sold and moved from treasury, they can be considered as circulating tokens and therefore must be meeting reserve criterias. Circulating supply should be less or equal of Treasury Lari reserves. 
