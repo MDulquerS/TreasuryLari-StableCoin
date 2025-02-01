@@ -2,14 +2,31 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
-import {TreasuryLari, TreasuryLariErrors, Ownable, Pausable, IERC20} from "../src/TreasuryLari.sol";
+import {TreasuryLari, TreasuryLariErrors, Ownable, Pausable, IERC20, IERC20Errors, ERC20Permit, ECDSA} from "../src/TreasuryLari.sol";
 
 contract CounterTest is Test {
     TreasuryLari public treasuryLari;
     address public TLWallet = address(1);
     address public taxWallet = address(2);
     address public prankWallet = address(99);
+    address public poolAddress = address(100);
     address public helperAddress10 = address(10);
+    address public helperAddress11 = address(11);
+    address public helperAddress12 = address(12);
+    address public helperAddress13 = address(13);
+    address public helperAddress14 = address(14);
+    address public helperAddress15 = address(15);
+
+    uint256 public privateKey =
+        0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    address public publicKey = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    bytes32 PERMIT_TYPEHASH =
+        keccak256(
+            abi.encodePacked(
+                "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+            )
+        );
+
     address[] public users;
     function setUp() public {
         treasuryLari = new TreasuryLari(TLWallet, taxWallet);
@@ -57,10 +74,10 @@ contract CounterTest is Test {
     }
 
     function testIfIsPoolFunctionWorksProperly() public {
-        address poolAddress = address(5);
+        address pool = address(5);
         bool isPool = true;
-        treasuryLari.addPoolAddress(poolAddress, isPool);
-        bool actualIsPool = treasuryLari.isPool(poolAddress);
+        treasuryLari.addPoolAddress(pool, isPool);
+        bool actualIsPool = treasuryLari.isPool(pool);
         assertEq(actualIsPool, isPool);
     }
 
@@ -295,7 +312,7 @@ contract CounterTest is Test {
 
     function testIfRevertIfNonOwnerIsCallingaddPoolAddressFunction() public {
         vm.startPrank(prankWallet);
-        address poolAddress = address(5);
+        address pool = address(5);
         bool isPool = true;
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -303,30 +320,30 @@ contract CounterTest is Test {
                 prankWallet
             )
         );
-        treasuryLari.addPoolAddress(poolAddress, isPool);
+        treasuryLari.addPoolAddress(pool, isPool);
 
         vm.stopPrank();
     }
 
     function testIfRevertIfPoolDetailsIsAddedAndAlreadyExists() public {
-        address poolAddress = address(5);
+        address pool = address(5);
         bool isPool = true;
-        treasuryLari.addPoolAddress(poolAddress, isPool);
+        treasuryLari.addPoolAddress(pool, isPool);
         vm.expectRevert(
             abi.encodeWithSelector(TreasuryLariErrors.ExactDetails.selector)
         );
-        treasuryLari.addPoolAddress(poolAddress, isPool);
+        treasuryLari.addPoolAddress(pool, isPool);
     }
 
     function testIfOwnerCanSuccessfullyAddPoolAddress() public {
-        address poolAddress = helperAddress10;
+        address pool = helperAddress10;
         bool isPool = true;
-        bool actualIsPool = treasuryLari.isPool(poolAddress);
+        bool actualIsPool = treasuryLari.isPool(pool);
         assertFalse(actualIsPool);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.PoolAddressAdded(poolAddress, isPool);
-        treasuryLari.addPoolAddress(poolAddress, isPool);
-        bool actualIsPoolAfter = treasuryLari.isPool(poolAddress);
+        emit TreasuryLari.PoolAddressAdded(pool, isPool);
+        treasuryLari.addPoolAddress(pool, isPool);
+        bool actualIsPoolAfter = treasuryLari.isPool(pool);
         assertTrue(actualIsPoolAfter);
     }
 
@@ -688,5 +705,651 @@ contract CounterTest is Test {
         treasuryLari.approve(spender, amount);
         uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
         assertEq(actualAllowanceAfter, amount);
+    }
+
+    function testIfRevertIfFromAddressIsZeroWhileCallingtransferFunction()
+        public
+    {
+        vm.startPrank(address(0));
+        address to = helperAddress10;
+        uint256 amount = 100e18;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InvalidSender.selector,
+                address(0)
+            )
+        );
+        treasuryLari.transfer(to, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfToAddressIsZeroWhileCallingtransferFunction()
+        public
+    {
+        address to = address(0);
+        uint256 amount = 100e18;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InvalidReceiver.selector,
+                to
+            )
+        );
+        treasuryLari.transfer(to, amount);
+    }
+
+    function testIfRevertIfFromAddressIsBlockedWhileCallingTransferFunction()
+        public
+    {
+        address from = helperAddress10;
+        address to = helperAddress11;
+        uint256 amount = 100e18;
+        users.push(from);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.UserBlocked(from);
+        treasuryLari.blockUsers(users);
+        vm.startPrank(from);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20Blocked.selector, from)
+        );
+        treasuryLari.transfer(to, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfToAddressIsBlockedWhileCallingTransferFunction()
+        public
+    {
+        address from = helperAddress10;
+        address to = helperAddress11;
+        uint256 amount = 100e18;
+        users.push(to);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.UserBlocked(to);
+        treasuryLari.blockUsers(users);
+        vm.startPrank(from);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20Blocked.selector, to)
+        );
+        treasuryLari.transfer(to, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfSenderDoesNotHaveEnoughBalanceWhileCallingTransferFunction()
+        public
+    {
+        address from = helperAddress10;
+        address to = helperAddress11;
+        uint256 amount = 100e18;
+        uint256 balanceOfFrom = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFrom, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientBalance.selector,
+                from,
+                balanceOfFrom,
+                amount
+            )
+        );
+        vm.startPrank(from);
+        treasuryLari.transfer(to, amount);
+        vm.stopPrank();
+    }
+
+    function testIfSenderCanSuccessfullyTransferTokensWhileCallingTransferFunction()
+        public
+    {
+        address from = helperAddress10;
+        address to = helperAddress11;
+        uint256 amount = 100e18;
+        uint256 balanceOfFrom = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFrom, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, from, amount);
+        treasuryLari.transfer(from, amount);
+        vm.stopPrank();
+        uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfter, amount);
+        uint256 balanceOfTo = treasuryLari.balanceOf(to);
+        assertEq(balanceOfTo, 0);
+        vm.startPrank(from);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(from, to, amount);
+        treasuryLari.transfer(to, amount);
+        uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfterTransfer, 0);
+        uint256 balanceOfToAfterTransfer = treasuryLari.balanceOf(to);
+        assertEq(balanceOfToAfterTransfer, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRTFeeFeatureWorksProperlyWhileTransferringTokensIfRTFeeIsEnabled()
+        public
+    {
+        uint256 rtFee = 100000;
+        bool enable = true;
+        uint256 amount = 100e18;
+        uint256 totalFee;
+        uint256 expectpedTotalFee = (amount * rtFee) /
+            treasuryLari.getFDivider();
+        totalFee += expectpedTotalFee;
+        address from = helperAddress10;
+        address to = helperAddress11;
+        uint256 balanceOfFrom = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFrom, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit TreasuryLari.EnabledRTFee(rtFee, enable);
+        treasuryLari.enableRTFee(rtFee, enable);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, from, amount - expectpedTotalFee);
+        treasuryLari.transfer(from, amount);
+        vm.stopPrank();
+        amount = amount - expectpedTotalFee;
+        expectpedTotalFee = (amount * rtFee) / treasuryLari.getFDivider();
+        totalFee += expectpedTotalFee;
+        uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfter, amount);
+        uint256 balanceOfTo = treasuryLari.balanceOf(to);
+        assertEq(balanceOfTo, 0);
+        vm.startPrank(from);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(from, to, amount - expectpedTotalFee);
+        emit IERC20.Transfer(from, taxWallet, expectpedTotalFee);
+        treasuryLari.transfer(to, amount);
+        uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfterTransfer, 0);
+        uint256 balanceOfToAfterTransfer = treasuryLari.balanceOf(to);
+        assertEq(balanceOfToAfterTransfer, amount - expectpedTotalFee);
+        uint256 balanceOfTaxWallet = treasuryLari.balanceOf(taxWallet);
+        assertEq(balanceOfTaxWallet, totalFee);
+        vm.stopPrank();
+    }
+
+    function testIfSFeeFeatureWorksProperlyWhileTransferringTokensIfSFeeIsEnabled()
+        public
+    {
+        uint256 sFee = 100000;
+        bool enable = true;
+        uint256 amount = 100e18;
+        uint256 totalFee;
+        uint256 expectpedTotalFee = (amount * sFee) /
+            treasuryLari.getFDivider();
+        totalFee += expectpedTotalFee;
+        address from = helperAddress10;
+        address to = poolAddress;
+        uint256 balanceOfFrom = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFrom, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit TreasuryLari.EnabledSFee(sFee, enable);
+        treasuryLari.enableSFee(sFee, enable);
+        vm.expectEmit(address(treasuryLari));
+        emit TreasuryLari.PoolAddressAdded(poolAddress, true);
+        treasuryLari.addPoolAddress(poolAddress, true);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, from, amount);
+        treasuryLari.transfer(from, amount);
+        vm.stopPrank();
+        uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfter, amount);
+        uint256 balanceOfTo = treasuryLari.balanceOf(to);
+        assertEq(balanceOfTo, 0);
+        vm.startPrank(from);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(from, to, amount - expectpedTotalFee);
+        emit IERC20.Transfer(from, taxWallet, expectpedTotalFee);
+        treasuryLari.transfer(to, amount);
+        uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfterTransfer, 0);
+        uint256 balanceOfToAfterTransfer = treasuryLari.balanceOf(to);
+        assertEq(balanceOfToAfterTransfer, amount - expectpedTotalFee);
+        uint256 balanceOfTaxWallet = treasuryLari.balanceOf(taxWallet);
+        assertEq(balanceOfTaxWallet, totalFee);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfUserIsBlockedWhileCallingApproveFunction() public {
+        address spender = helperAddress10;
+        uint256 amount = 100e18;
+        address owner = helperAddress11;
+        users.push(owner);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.UserBlocked(owner);
+        treasuryLari.blockUsers(users);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20Blocked.selector, owner)
+        );
+        vm.startPrank(owner);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfUserIsAddressZeroWhileCallingApproveFunction()
+        public
+    {
+        address spender = helperAddress10;
+        uint256 amount = 100e18;
+        address owner = address(0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InvalidApprover.selector,
+                owner
+            )
+        );
+        vm.startPrank(owner);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfSpenderIsAddressZeroWhileCallingApproveFunction()
+        public
+    {
+        address spender = address(0);
+        uint256 amount = 100e18;
+        address owner = helperAddress10;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InvalidSpender.selector,
+                spender
+            )
+        );
+        vm.startPrank(owner);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+    }
+
+    function testIfUserCanSuccessfullyCallApproveFunction() public {
+        address spender = helperAddress10;
+        uint256 amount = 100e18;
+        address owner = helperAddress11;
+        uint256 expectedAllowance = 0;
+        uint256 actualAllowance = treasuryLari.allowance(owner, spender);
+        assertEq(actualAllowance, expectedAllowance);
+        vm.startPrank(owner);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Approval(owner, spender, amount);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+        uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
+        assertEq(actualAllowanceAfter, amount);
+    }
+
+    function testIfRevertIfAllowanceIsLessThanValueWhileCallingTransferFromFunction()
+        public
+    {
+        address owner = helperAddress10;
+        address spender = helperAddress11;
+        address to = helperAddress12;
+        uint256 amount = 100e18;
+        uint256 allowance = treasuryLari.allowance(owner, spender);
+        uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwner, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                spender,
+                allowance,
+                amount
+            )
+        );
+        vm.startPrank(spender);
+        treasuryLari.transferFrom(spender, to, amount);
+        vm.stopPrank();
+    }
+
+    function testIfUserCanSuccessfullyCallTransferFromFunction() public {
+        address owner = helperAddress10;
+        address spender = helperAddress11;
+        address to = helperAddress12;
+        uint256 amount = 100e18;
+        uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwner, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, owner, amount);
+        treasuryLari.transfer(owner, amount);
+        vm.stopPrank();
+        vm.startPrank(owner);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Approval(owner, spender, amount);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+        vm.startPrank(spender);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(owner, to, amount);
+        treasuryLari.transferFrom(owner, to, amount);
+        vm.stopPrank();
+        uint256 balanceOfOwnerAfter = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwnerAfter, 0);
+        uint256 balanceOfTo = treasuryLari.balanceOf(to);
+        assertEq(balanceOfTo, amount);
+    }
+
+    function testIfRevertIfAddressZeroIsTryingToCallBurnFunction() public {
+        uint256 amount = 100e18;
+        vm.startPrank(address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InvalidSender.selector,
+                address(0)
+            )
+        );
+        treasuryLari.burn(amount);
+        vm.stopPrank();
+    }
+
+    function testIfUserCanSuccessfullyCallBurnFunction() public {
+        uint256 currentTotalSupply = treasuryLari.totalSupply();
+        assertEq(currentTotalSupply, 0);
+        uint256 amount = 100e18;
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        uint256 currentTotalSupplyAfter = treasuryLari.totalSupply();
+        assertEq(currentTotalSupplyAfter, amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, address(0), amount);
+        treasuryLari.burn(amount);
+        vm.stopPrank();
+        uint256 currentTotalSupplyAfterBurn = treasuryLari.totalSupply();
+        assertEq(currentTotalSupplyAfterBurn, 0);
+    }
+
+    function testIfRevertIfAmountIsNotApprovedWhileCallingBurnFromFunction()
+        public
+    {
+        address owner = helperAddress10;
+        address spender = helperAddress11;
+        uint256 amount = 100e18;
+        uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwner, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                spender,
+                0,
+                amount
+            )
+        );
+        vm.startPrank(spender);
+        treasuryLari.burnFrom(owner, amount);
+        vm.stopPrank();
+    }
+
+    // function testIfRevertIfAccountIsAddressZeroWhileCallingBurnFunction()
+    //     public
+    // {
+    //     address account = address(0);
+    //     address spender = helperAddress10;
+    //     uint256 amount = 100e18;
+    //     vm.startPrank(account);
+    //     vm.expectEmit(address(treasuryLari));
+    //     emit IERC20.Approval(account, spender, amount);
+    //     treasuryLari.approve(spender, amount);
+    //     vm.stopPrank();
+    //     vm.startPrank(spender);
+    //     vm.expectRevert(
+    //         abi.encodeWithSelector(
+    //             IERC20Errors.ERC20InvalidSender.selector,
+    //             account
+    //         )
+    //     );
+
+    //     treasuryLari.burnFrom(account, amount);
+    //     vm.stopPrank();
+    // }
+
+    function testIfSpenderCanSuccessfullyCallBurnFromFunction() public {
+        address owner = helperAddress10;
+        address spender = helperAddress11;
+        uint256 amount = 100e18;
+        uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwner, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        uint256 balanceOfTLWallet = treasuryLari.balanceOf(TLWallet);
+        assertEq(balanceOfTLWallet, amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(TLWallet, owner, amount);
+        treasuryLari.transfer(owner, amount);
+        vm.stopPrank();
+        vm.startPrank(owner);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Approval(owner, spender, amount);
+        treasuryLari.approve(spender, amount);
+        vm.stopPrank();
+        vm.startPrank(spender);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Transfer(owner, address(0), amount);
+        treasuryLari.burnFrom(owner, amount);
+        vm.stopPrank();
+        uint256 balanceOfOwnerAfterBurn = treasuryLari.balanceOf(owner);
+        assertEq(balanceOfOwnerAfterBurn, 0);
+    }
+
+    function testIfNoncesFunctionWorksProperly() public view {
+        address user = helperAddress10;
+        uint256 expectedNonce = 0;
+        uint256 actualNonce = treasuryLari.nonces(user);
+        assertEq(actualNonce, expectedNonce);
+    }
+
+    // function testIfDOMAIN_SEPARATORFunctionWorksProperly() public {
+    //     bytes32 expectedDOMAIN_SEPARATOR = keccak256(
+    //         abi.encode(
+    //             keccak256(
+    //                 "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    //             ),
+    //             keccak256("Treasury Lari"),
+    //             keccak256("1"),
+    //             1,
+    //             address(this)
+    //         )
+    //     );
+    //     bytes32 actualDOMAIN_SEPARATOR = treasuryLari.DOMAIN_SEPARATOR();
+    //     assertEq(actualDOMAIN_SEPARATOR, expectedDOMAIN_SEPARATOR);
+    // }
+
+    function testIfeip712DomainFunctionWorksProperly() public view {
+        bytes1 expectedFields = hex"0f";
+        string memory expectedName = "Treasury Lari";
+        string memory expectedVersion = "1";
+        uint256 expectedChainId = 31337;
+        address expectedVerifyingContract = address(treasuryLari);
+        bytes32 expectedSalt = bytes32(0);
+        uint256[] memory expectedExtensions = new uint256[](0);
+        (
+            bytes1 actualFields,
+            string memory actualName,
+            string memory actualVersion,
+            uint256 actualChainId,
+            address actualVerifyingContract,
+            bytes32 actualSalt,
+            uint256[] memory actualExtensions
+        ) = treasuryLari.eip712Domain();
+        assertEq(actualFields, expectedFields);
+        assertEq(actualName, expectedName);
+        assertEq(actualVersion, expectedVersion);
+        assertEq(actualChainId, expectedChainId);
+        assertEq(actualVerifyingContract, expectedVerifyingContract);
+        assertEq(actualSalt, expectedSalt);
+        assertEq(actualExtensions, expectedExtensions);
+    }
+
+    function testIfRevertIfDeadlineIsExpiredWhileCallingPermitFunction()
+        public
+    {
+        address owner = publicKey;
+        address spender = helperAddress10;
+        uint256 value = 10e18;
+        uint256 deadline = 0;
+        uint256 nonce = treasuryLari.nonces(owner);
+
+        // Create EIP-712 signature
+        bytes32 structHash = keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline)
+        );
+
+        // bytes32 digest = treasuryLari.hashTypedDataV4(structHash);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                treasuryLari.DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+        vm.startPrank(spender);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ERC20Permit.ERC2612ExpiredSignature.selector,
+                deadline
+            )
+        );
+        treasuryLari.permit(owner, spender, value, deadline, v, r, s);
+        vm.stopPrank();
+    }
+
+    function testIfRevertIfSignerIsNotValidWhileCallingPermitFunction() public {
+        address owner = helperAddress11;
+        address spender = helperAddress10;
+        uint256 value = 10e18;
+        uint256 deadline = 1000000000000;
+        uint256 nonce = treasuryLari.nonces(owner);
+
+        // Create EIP-712 signature
+        bytes32 structHash = keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline)
+        );
+
+        // bytes32 digest = treasuryLari.hashTypedDataV4(structHash);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                treasuryLari.DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+        vm.startPrank(spender);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ERC20Permit.ERC2612InvalidSigner.selector,
+                publicKey,
+                owner
+            )
+        );
+        treasuryLari.permit(owner, spender, value, deadline, v, r, s);
+        vm.stopPrank();
+    }
+
+    function testIfUserCanSuccessfullyCallPermitFunction() public {
+        address owner = publicKey;
+        address spender = helperAddress10;
+        uint256 value = 10e18;
+        uint256 deadline = block.timestamp + 2 days;
+        uint256 nonce = treasuryLari.nonces(owner);
+
+        // Create EIP-712 signature
+        bytes32 structHash = keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline)
+        );
+
+        // bytes32 digest = treasuryLari.hashTypedDataV4(structHash);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                treasuryLari.DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+        uint256 expectedAllowance = 0;
+        uint256 actualAllowance = treasuryLari.allowance(owner, spender);
+        assertEq(actualAllowance, expectedAllowance);
+        vm.expectEmit(address(treasuryLari));
+        emit IERC20.Approval(owner, spender, value);
+        treasuryLari.permit(owner, spender, value, deadline, v, r, s);
+        uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
+        assertEq(actualAllowanceAfter, value);
+    }
+
+    function testIfRevertIfSSignatureIsInvalidWhileCallingPermitFunction()
+        public
+    {
+        address owner = publicKey;
+        address spender = helperAddress10;
+        uint256 value = 10e18;
+        uint256 deadline = block.timestamp + 2 days;
+        uint256 nonce = treasuryLari.nonces(owner);
+
+        // Create EIP-712 signature
+        bytes32 structHash = keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonce, deadline)
+        );
+
+        // bytes32 digest = treasuryLari.hashTypedDataV4(structHash);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                treasuryLari.DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+        (uint8 v, bytes32 r, ) = vm.sign(privateKey, digest);
+        bytes32 invalidS = bytes32(
+            0x8FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+        );
+        vm.startPrank(spender);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ECDSA.ECDSAInvalidSignatureS.selector,
+                invalidS
+            )
+        );
+        treasuryLari.permit(owner, spender, value, deadline, v, r, invalidS);
+        vm.stopPrank();
+    }
+
+    function testIfRevertInValidSignatureIfSignerIsAddressZero() public {
+        address spender = helperAddress10;
+        uint256 value = 10e18;
+        uint256 deadline = block.timestamp + 2 days;
+        bytes32 invalidR = bytes32(0);
+        bytes32 invalidS = bytes32(0);
+        uint8 invalidV = 27;
+        address invalidSigner = address(0);
+        vm.startPrank(spender);
+        vm.expectRevert(
+            abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector)
+        );
+        treasuryLari.permit(
+            invalidSigner,
+            spender,
+            value,
+            deadline,
+            invalidV,
+            invalidR,
+            invalidS
+        );
+        vm.stopPrank();
     }
 }
