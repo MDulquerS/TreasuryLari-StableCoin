@@ -1,3 +1,13 @@
+//
+//   ██████╗ ███████╗██╗     ████████╗
+//  ██╔════╝ ██╔════╝██║     ╚══██╔══╝
+//  ██║  ███╗█████╗  ██║        ██║
+//  ██║   ██║██╔══╝  ██║        ██║
+//  ╚██████╔╝███████╗███████╗   ██║
+//   ╚═════╝ ╚══════╝╚══════╝   ╚═╝
+//
+//  ⚡ GELT: Powering the Future of Finance ⚡
+
 // SPDX-License-Identifier: MIT
 // This smart contract will be deployed on the Tron Network, and the Tron network still lacks PUSH0 instruction implementation.
 // We will use the following pragma to avoid the PUSH0 instruction.
@@ -397,8 +407,7 @@ abstract contract ERC20 is Context, IERC20, IERC20Errors, Pausable {
      * For example, if `decimals` equals `2`, a balance of `505` tokens should
      * be displayed to a user as `5.05` (`505 / 10 ** 2`).
      *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the default value returned by this function, unless
+     * Tokens usually opt for a value of 18 but we are using 6 which is similar to USDT token. This is the default value returned by this function, unless
      * it's overridden.
      *
      * NOTE: This information is only used for _display_ purposes: it in
@@ -544,13 +553,24 @@ abstract contract ERC20 is Context, IERC20, IERC20Errors, Pausable {
         }
         _update(from, to, value);
     }
-
     /**
-     * @dev Transfers a `value` amount of tokens from `from` to `to`, or alternatively mints (or burns) if `from`
-     * (or `to`) is the zero address. All customizations to transfers, mints, and burns should be done by overriding
-     * this function.
+     * @dev Handles token transfers, minting, and burning with additional custom logic for fees and restrictions.
      *
-     * Emits a {Transfer} event.
+     * - If `from` is the zero address, `value` tokens are minted.
+     * - If `to` is the zero address, `value` tokens are burned.
+     * - If `from` and `to` are regular addresses, a standard token transfer occurs if rTFee is enabled.
+     * - A Swap tax may be applied to transfers based on the sender and recipient if these are pool address.
+     * - Ensures that blocked addresses cannot participate in transfers.
+     * - Reverts if `from` does not have sufficient balance.
+     *
+     * Emits a {Transfer} event for both the transfer and any applicable tax deduction.
+     *
+     * Requirements:
+     * - The contract must not be paused.
+     *
+     * @param from The address sending the tokens (zero address if minting).
+     * @param to The address receiving the tokens (zero address if burning).
+     * @param value The amount of tokens to be transferred, minted, or burned.
      */
     function _update(
         address from,
@@ -563,20 +583,24 @@ abstract contract ERC20 is Context, IERC20, IERC20Errors, Pausable {
 
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
+            // Minting: Increase total supply
             _totalSupply += value;
         } else {
             uint256 fromBalance = _balances[from];
             if (fromBalance < value) {
                 revert ERC20InsufficientBalance(from, fromBalance, value);
             }
-
+            // Apply buy/sell fees if enabled
             if (isSFeeEnabled) {
                 if (isPoolAddress[from]) {
+                    // Buy tax
                     taxAmount += (value * sBFee) / F_DIVIDER;
                 } else if (isPoolAddress[to]) {
+                    // Sell tax
                     taxAmount += (value * sSFee) / F_DIVIDER;
                 }
             }
+            // Apply transfer fee if enabled and not interacting with a pool
             if (
                 isRTFeeEnabled &&
                 to != address(0) &&
@@ -587,8 +611,10 @@ abstract contract ERC20 is Context, IERC20, IERC20Errors, Pausable {
 
             unchecked {
                 // Overflow not possible: value <= fromBalance <= totalSupply.
+                // Deduct value from sender's balance
                 _balances[from] = fromBalance - value;
             }
+            // Process tax deduction if applicable
             if (taxAmount > 0) {
                 uint256 ta;
                 ta = taxAmount;
@@ -596,19 +622,21 @@ abstract contract ERC20 is Context, IERC20, IERC20Errors, Pausable {
                 value -= ta;
                 unchecked {
                     // Overflow not possible: value <= fromBalance <= totalSupply.
-
+                    // Add tax amount to the tax wallet
                     _balances[taxWallet] += ta;
                 }
-                emit Transfer(from, to, ta);
+                emit Transfer(from, taxWallet, ta);
             }
         }
 
         if (to == address(0)) {
+            // Burning: Reduce total supply
             unchecked {
                 // Overflow not possible: value <= totalSupply or value <= fromBalance <= totalSupply.
                 _totalSupply -= value;
             }
         } else {
+            // Increase recipient balance
             unchecked {
                 // Overflow not possible: balance + value is at most totalSupply, which we know fits into a uint256.
                 _balances[to] += value;
@@ -842,6 +870,8 @@ interface IERC20Permit {
     // solhint-disable-next-line func-name-mixedcase
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
+//Modified ECDSA library as not all functions are required
+
 /**
  * @dev Elliptic Curve Digital Signature Algorithm (ECDSA) operations.
  *
@@ -946,7 +976,7 @@ library ECDSA {
         }
     }
 }
-
+//Modified Math library as not all functions are required
 /**
  * @dev Standard math utilities missing in the Solidity language.
  */
@@ -989,7 +1019,7 @@ library Math {
         return result;
     }
 }
-
+//Modified Strings library as not all functions are required
 /**
  * @dev String operations.
  */
@@ -1019,7 +1049,7 @@ library Strings {
         }
     }
 }
-
+//Modified MessageHashUtils library as not all functions are required
 /**
  * @dev Signature message hash utilities for producing digests to be consumed by {ECDSA} recovery or signing.
  *
