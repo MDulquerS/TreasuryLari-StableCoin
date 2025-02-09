@@ -1,10 +1,35 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.18;
 
 import {Test, console} from "forge-std/Test.sol";
 import {TreasuryLari, TreasuryLariErrors, Ownable, Pausable, IERC20, IERC20Errors, ERC20Permit, ECDSA} from "../src/TreasuryLari.sol";
 
-contract CounterTest is Test {
+interface AllEvents {
+    event Paused(address account);
+    event Unpaused(address account);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
+    event UserBlocked(address indexed user);
+    event UserUnblocked(address indexed user);
+    event PoolAddressAdded(address indexed pool, bool isPool);
+
+    event UpdatedTLWallet(address indexed newTLWallet);
+
+    event UpdatedTaxWallet(address indexed newTaxWallet);
+
+    event EnabledRTFee(uint256 fee, bool enabled);
+
+    event EnabledSFee(uint256 sfee, uint256 bfee, bool enabled);
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+}
+contract CounterTest is Test, AllEvents {
     TreasuryLari public treasuryLari;
     address public TLWallet = address(1);
     address public taxWallet = address(2);
@@ -90,13 +115,23 @@ contract CounterTest is Test {
         assertEq(actualRTFeeAfter, rtFeeAfter);
     }
 
-    function testIfgetSFeeFunctionWorksProperly() public {
-        uint256 actualSFee = treasuryLari.getSFee();
-        assertEq(actualSFee, 0);
-        uint256 sFeeAfter = 100000;
-        treasuryLari.enableSFee(sFeeAfter, true);
-        uint256 actualSFeeAfter = treasuryLari.getSFee();
-        assertEq(actualSFeeAfter, sFeeAfter);
+    function testIfgetSSFeeFunctionWorksProperly() public {
+        uint256 actualSSFee = treasuryLari.getSSFee();
+        assertEq(actualSSFee, 0);
+        uint256 sSFeeAfter = 100000;
+        uint256 sBFeeAfter = 100000;
+        treasuryLari.enableSFee(sSFeeAfter, sBFeeAfter, true);
+        uint256 actualSSFeeAfter = treasuryLari.getSSFee();
+        assertEq(actualSSFeeAfter, sSFeeAfter);
+    }
+    function testIfgetSBFeeFunctionWorksProperly() public {
+        uint256 actualSBFee = treasuryLari.getSBFee();
+        assertEq(actualSBFee, 0);
+        uint256 sSFeeAfter = 100000;
+        uint256 sBFeeAfter = 100000;
+        treasuryLari.enableSFee(sSFeeAfter, sBFeeAfter, true);
+        uint256 actualSBFeeAfter = treasuryLari.getSBFee();
+        assertEq(actualSBFeeAfter, sBFeeAfter);
     }
 
     function testIfgetFDividerFunctionWorksProperly() public view {
@@ -113,13 +148,23 @@ contract CounterTest is Test {
         bool actualIsRTFeeEnabledAfter = treasuryLari.getIsRTFeeEnabled();
         assertEq(actualIsRTFeeEnabledAfter, true);
     }
-    function testIfgetIsSFeeEnabledFunctionWorksProperly() public {
-        bool actualIsSFeeEnabled = treasuryLari.getIsSFeeEnabled();
-        assertEq(actualIsSFeeEnabled, false);
-        uint256 sFeeAfter = 100000;
-        treasuryLari.enableSFee(sFeeAfter, true);
-        bool actualIsSFeeEnabledAfter = treasuryLari.getIsSFeeEnabled();
-        assertEq(actualIsSFeeEnabledAfter, true);
+    function testIfgetIsSSFeeEnabledFunctionWorksProperly() public {
+        bool actualIsSSFeeEnabled = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualIsSSFeeEnabled, false);
+        uint256 sSFeeAfter = 100000;
+        uint256 sBFeeAfter = 100000;
+        treasuryLari.enableSFee(sSFeeAfter, sBFeeAfter, true);
+        bool actualIsSSFeeEnabledAfter = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualIsSSFeeEnabledAfter, true);
+    }
+    function testIfgetIsSBFeeEnabledFunctionWorksProperly() public {
+        bool actualIsSBFeeEnabled = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualIsSBFeeEnabled, false);
+        uint256 sSFeeAfter = 100000;
+        uint256 sBFeeAfter = 100000;
+        treasuryLari.enableSFee(sSFeeAfter, sBFeeAfter, true);
+        bool actualIsSBFeeEnabledAfter = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualIsSBFeeEnabledAfter, true);
     }
 
     function testIfRevertIfNonOwnerCallPauseFunction() public {
@@ -152,7 +197,7 @@ contract CounterTest is Test {
         bool isPaused = treasuryLari.paused();
         assertFalse(isPaused);
         vm.expectEmit(address(treasuryLari));
-        emit Pausable.Paused(address(this));
+        emit Paused(address(this));
         treasuryLari.pause();
         bool isPausedAfter = treasuryLari.paused();
         assertTrue(isPausedAfter);
@@ -162,7 +207,7 @@ contract CounterTest is Test {
         bool isPaused = treasuryLari.paused();
         assertFalse(isPaused);
         vm.expectEmit(address(treasuryLari));
-        emit Pausable.Paused(address(this));
+        emit Paused(address(this));
         treasuryLari.pause();
         bool isPausedAfter = treasuryLari.paused();
         assertTrue(isPausedAfter);
@@ -199,7 +244,7 @@ contract CounterTest is Test {
         bool isPaused = treasuryLari.paused();
         assertTrue(isPaused);
         vm.expectEmit(address(treasuryLari));
-        emit Pausable.Unpaused(address(this));
+        emit Unpaused(address(this));
         treasuryLari.unpause();
         bool isPausedAfter = treasuryLari.paused();
         assertFalse(isPausedAfter);
@@ -243,7 +288,7 @@ contract CounterTest is Test {
         assertEq(balanceOfTLWallet, 0);
         uint256 amount = 100e18;
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         uint256 currentSupplyAfter = treasuryLari.totalSupply();
         assertEq(currentSupplyAfter, amount);
@@ -274,7 +319,7 @@ contract CounterTest is Test {
         bool isBlocked = treasuryLari.blocked(users[0]);
         assertFalse(isBlocked);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(users[0]);
+        emit UserBlocked(users[0]);
         treasuryLari.blockUsers(users);
         bool isBlockedAfter = treasuryLari.blocked(users[0]);
         assertTrue(isBlockedAfter);
@@ -299,12 +344,12 @@ contract CounterTest is Test {
         bool isBlocked = treasuryLari.blocked(users[0]);
         assertFalse(isBlocked);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(users[0]);
+        emit UserBlocked(users[0]);
         treasuryLari.blockUsers(users);
         bool isBlockedAfter = treasuryLari.blocked(users[0]);
         assertTrue(isBlockedAfter);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserUnblocked(users[0]);
+        emit UserUnblocked(users[0]);
         treasuryLari.unblockUsers(users);
         bool isBlockedAfterUnblock = treasuryLari.blocked(users[0]);
         assertFalse(isBlockedAfterUnblock);
@@ -341,7 +386,7 @@ contract CounterTest is Test {
         bool actualIsPool = treasuryLari.isPool(pool);
         assertFalse(actualIsPool);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.PoolAddressAdded(pool, isPool);
+        emit PoolAddressAdded(pool, isPool);
         treasuryLari.addPoolAddress(pool, isPool);
         bool actualIsPoolAfter = treasuryLari.isPool(pool);
         assertTrue(actualIsPoolAfter);
@@ -376,7 +421,7 @@ contract CounterTest is Test {
         address actualTLWallet = treasuryLari.getTLWallet();
         assertEq(actualTLWallet, TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.UpdatedTLWallet(newTLWallet);
+        emit UpdatedTLWallet(newTLWallet);
         treasuryLari.updateTLWallet(newTLWallet);
         address actualTLWalletAfter = treasuryLari.getTLWallet();
         assertEq(actualTLWalletAfter, newTLWallet);
@@ -411,7 +456,7 @@ contract CounterTest is Test {
         address actualTaxWallet = treasuryLari.getTaxWallet();
         assertEq(actualTaxWallet, taxWallet);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.UpdatedTaxWallet(newTaxWallet);
+        emit UpdatedTaxWallet(newTaxWallet);
         treasuryLari.updateTaxWallet(newTaxWallet);
         address actualTaxWalletAfter = treasuryLari.getTaxWallet();
         assertEq(actualTaxWalletAfter, newTaxWallet);
@@ -451,18 +496,18 @@ contract CounterTest is Test {
         uint256 balanceOfToken = tokenAddress.balanceOf(address(this));
         assertEq(balanceOfToken, 0);
         vm.expectEmit(address(tokenAddress));
-        emit IERC20.Transfer(address(0), address(this), amount);
+        emit Transfer(address(0), address(this), amount);
         tokenAddress.mint(amount);
         uint256 balanceOfTokenAfter = tokenAddress.balanceOf(address(this));
         assertEq(balanceOfTokenAfter, amount);
         vm.expectEmit(address(tokenAddress));
-        emit IERC20.Transfer(address(this), address(treasuryLari), amount);
+        emit Transfer(address(this), address(treasuryLari), amount);
         tokenAddress.transfer(address(treasuryLari), amount);
 
         uint256 balanceOfLari = tokenAddress.balanceOf(address(treasuryLari));
         assertEq(balanceOfLari, amount);
         vm.expectEmit(address(tokenAddress));
-        emit IERC20.Transfer(address(treasuryLari), address(this), amount);
+        emit Transfer(address(treasuryLari), address(this), amount);
         treasuryLari.withdrawStuckedToken(address(tokenAddress), address(this));
         uint256 balanceOfTokenAfterWithdraw = tokenAddress.balanceOf(
             address(treasuryLari)
@@ -508,7 +553,7 @@ contract CounterTest is Test {
         assertEq(actualRTFee, 0);
         assertFalse(actualRTFeeStatus);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.EnabledRTFee(rtFee, enable);
+        emit EnabledRTFee(rtFee, enable);
         treasuryLari.enableRTFee(rtFee, enable);
         uint256 actualRTFeeAfter = treasuryLari.getRTFee();
         bool actualRTFeeAfterStatus = treasuryLari.getIsRTFeeEnabled();
@@ -517,9 +562,10 @@ contract CounterTest is Test {
         assertTrue(actualRTFeeAfterStatus);
     }
 
-    function testIfRevertIfNonOwnerIsCallingenableSFeeFunction() public {
+    function testIfRevertIfNonOwnerIsCallingenableSSFeeFunction() public {
         vm.startPrank(prankWallet);
-        uint256 sFee = 100000;
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
         bool enable = true;
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -527,39 +573,86 @@ contract CounterTest is Test {
                 prankWallet
             )
         );
-        treasuryLari.enableSFee(sFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
+
+        vm.stopPrank();
+    }
+    function testIfRevertIfNonOwnerIsCallingenableSBFeeFunction() public {
+        vm.startPrank(prankWallet);
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
+        bool enable = true;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector,
+                prankWallet
+            )
+        );
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
 
         vm.stopPrank();
     }
 
-    function testIfRevertIfSFeeIsMoreThan20PercentWhileCallingenableSFeeFunction()
+    function testIfRevertIfSSFeeIsMoreThan20PercentWhileCallingenableSSFeeFunction()
         public
     {
-        uint256 sFee = 200001;
+        uint256 sSFee = 200001;
+        uint256 sBFee = 200001;
         bool enable = true;
         vm.expectRevert(
             abi.encodeWithSelector(
                 TreasuryLariErrors.MoreThan20Percent.selector
             )
         );
-        treasuryLari.enableSFee(sFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
+    }
+    function testIfRevertIfSBFeeIsMoreThan20PercentWhileCallingenableSBFeeFunction()
+        public
+    {
+        uint256 sSFee = 20000;
+        uint256 sBFee = 200001;
+        bool enable = true;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TreasuryLariErrors.MoreThan20Percent.selector
+            )
+        );
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
     }
 
-    function testIfOwnerCanSuccessfullyCallenableSFeeFunction() public {
-        uint256 sFee = 100000;
+    function testIfOwnerCanSuccessfullyCallenableSSFeeFunction() public {
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
         bool enable = true;
-        uint256 actualSFee = treasuryLari.getSFee();
-        bool actualSFeeStatus = treasuryLari.getIsSFeeEnabled();
-        assertEq(actualSFee, 0);
-        assertFalse(actualSFeeStatus);
+        uint256 actualSSFee = treasuryLari.getSSFee();
+        bool actualSSFeeStatus = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualSSFee, 0);
+        assertFalse(actualSSFeeStatus);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.EnabledSFee(sFee, enable);
-        treasuryLari.enableSFee(sFee, enable);
-        uint256 actualSFeeAfter = treasuryLari.getSFee();
-        bool actualSFeeAfterStatus = treasuryLari.getIsSFeeEnabled();
-        assertEq(actualSFeeAfter, sFee);
+        emit EnabledSFee(sSFee, sBFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
+        uint256 actualSSFeeAfter = treasuryLari.getSSFee();
+        bool actualSSFeeAfterStatus = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualSSFeeAfter, sSFee);
 
-        assertTrue(actualSFeeAfterStatus);
+        assertTrue(actualSSFeeAfterStatus);
+    }
+    function testIfOwnerCanSuccessfullyCallenableSBFeeFunction() public {
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
+        bool enable = true;
+        uint256 actualSBFee = treasuryLari.getSBFee();
+        bool actualSBFeeStatus = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualSBFee, 0);
+        assertFalse(actualSBFeeStatus);
+        vm.expectEmit(address(treasuryLari));
+        emit EnabledSFee(sSFee, sBFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
+        uint256 actualSBFeeAfter = treasuryLari.getSBFee();
+        bool actualSBFeeAfterStatus = treasuryLari.getIsSFeeEnabled();
+        assertEq(actualSBFeeAfter, sBFee);
+
+        assertTrue(actualSBFeeAfterStatus);
     }
 
     function testIfOwnerFunctionWorksProperly() public view {
@@ -585,7 +678,7 @@ contract CounterTest is Test {
         address actualOwner = treasuryLari.owner();
         assertEq(actualOwner, address(this));
         vm.expectEmit(address(treasuryLari));
-        emit Ownable.OwnershipTransferred(address(this), address(0));
+        emit OwnershipTransferred(address(this), address(0));
         treasuryLari.renounceOwnership();
         address actualOwnerAfter = treasuryLari.owner();
         assertEq(actualOwnerAfter, expectedOwner);
@@ -622,7 +715,7 @@ contract CounterTest is Test {
         address actualOwner = treasuryLari.owner();
         assertEq(actualOwner, address(this));
         vm.expectEmit(address(treasuryLari));
-        emit Ownable.OwnershipTransferred(address(this), newOwner);
+        emit OwnershipTransferred(address(this), newOwner);
         treasuryLari.transferOwnership(newOwner);
         address actualOwnerAfter = treasuryLari.owner();
         assertEq(actualOwnerAfter, newOwner);
@@ -660,7 +753,7 @@ contract CounterTest is Test {
         assertEq(actualTotalSupply, expectedTotalSupply);
         uint256 amount = 100e18;
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         uint256 actualTotalSupplyAfter = treasuryLari.totalSupply();
         assertEq(actualTotalSupplyAfter, amount);
@@ -672,7 +765,7 @@ contract CounterTest is Test {
         assertEq(actualBalance, expectedBalance);
         uint256 amount = 100e18;
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         uint256 actualBalanceAfter = treasuryLari.balanceOf(TLWallet);
         assertEq(actualBalanceAfter, amount);
@@ -684,7 +777,7 @@ contract CounterTest is Test {
         assertFalse(actualBlocked);
         users.push(user);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(user);
+        emit UserBlocked(user);
         treasuryLari.blockUsers(users);
         bool actualBlockedAfter = treasuryLari.blocked(user);
         assertTrue(actualBlockedAfter);
@@ -698,10 +791,10 @@ contract CounterTest is Test {
         assertEq(actualAllowance, expectedAllowance);
         uint256 amount = 100e18;
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Approval(owner, spender, amount);
+        emit Approval(owner, spender, amount);
         treasuryLari.approve(spender, amount);
         uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
         assertEq(actualAllowanceAfter, amount);
@@ -745,7 +838,7 @@ contract CounterTest is Test {
         uint256 amount = 100e18;
         users.push(from);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(from);
+        emit UserBlocked(from);
         treasuryLari.blockUsers(users);
         vm.startPrank(from);
         vm.expectRevert(
@@ -763,7 +856,7 @@ contract CounterTest is Test {
         uint256 amount = 100e18;
         users.push(to);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(to);
+        emit UserBlocked(to);
         treasuryLari.blockUsers(users);
         vm.startPrank(from);
         vm.expectRevert(
@@ -803,11 +896,11 @@ contract CounterTest is Test {
         uint256 balanceOfFrom = treasuryLari.balanceOf(from);
         assertEq(balanceOfFrom, 0);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, from, amount);
+        emit Transfer(TLWallet, from, amount);
         treasuryLari.transfer(from, amount);
         vm.stopPrank();
         uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
@@ -816,7 +909,7 @@ contract CounterTest is Test {
         assertEq(balanceOfTo, 0);
         vm.startPrank(from);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(from, to, amount);
+        emit Transfer(from, to, amount);
         treasuryLari.transfer(to, amount);
         uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
         assertEq(balanceOfFromAfterTransfer, 0);
@@ -840,14 +933,14 @@ contract CounterTest is Test {
         uint256 balanceOfFrom = treasuryLari.balanceOf(from);
         assertEq(balanceOfFrom, 0);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.EnabledRTFee(rtFee, enable);
+        emit EnabledRTFee(rtFee, enable);
         treasuryLari.enableRTFee(rtFee, enable);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, from, amount - expectpedTotalFee);
+        emit Transfer(TLWallet, from, amount - expectpedTotalFee);
         treasuryLari.transfer(from, amount);
         vm.stopPrank();
         amount = amount - expectpedTotalFee;
@@ -859,8 +952,8 @@ contract CounterTest is Test {
         assertEq(balanceOfTo, 0);
         vm.startPrank(from);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(from, to, amount - expectpedTotalFee);
-        emit IERC20.Transfer(from, taxWallet, expectpedTotalFee);
+        emit Transfer(from, to, amount - expectpedTotalFee);
+        emit Transfer(from, taxWallet, expectpedTotalFee);
         treasuryLari.transfer(to, amount);
         uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
         assertEq(balanceOfFromAfterTransfer, 0);
@@ -871,14 +964,15 @@ contract CounterTest is Test {
         vm.stopPrank();
     }
 
-    function testIfSFeeFeatureWorksProperlyWhileTransferringTokensIfSFeeIsEnabled()
+    function testIfSSFeeFeatureWorksProperlyWhileTransferringTokensIfSFeeIsEnabled()
         public
     {
-        uint256 sFee = 100000;
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
         bool enable = true;
         uint256 amount = 100e18;
         uint256 totalFee;
-        uint256 expectpedTotalFee = (amount * sFee) /
+        uint256 expectpedTotalFee = (amount * sSFee) /
             treasuryLari.getFDivider();
         totalFee += expectpedTotalFee;
         address from = helperAddress10;
@@ -886,17 +980,17 @@ contract CounterTest is Test {
         uint256 balanceOfFrom = treasuryLari.balanceOf(from);
         assertEq(balanceOfFrom, 0);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.EnabledSFee(sFee, enable);
-        treasuryLari.enableSFee(sFee, enable);
+        emit EnabledSFee(sSFee, sBFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
         vm.expectEmit(address(treasuryLari));
-        emit TreasuryLari.PoolAddressAdded(poolAddress, true);
+        emit PoolAddressAdded(poolAddress, true);
         treasuryLari.addPoolAddress(poolAddress, true);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, from, amount);
+        emit Transfer(TLWallet, from, amount);
         treasuryLari.transfer(from, amount);
         vm.stopPrank();
         uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
@@ -905,8 +999,54 @@ contract CounterTest is Test {
         assertEq(balanceOfTo, 0);
         vm.startPrank(from);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(from, to, amount - expectpedTotalFee);
-        emit IERC20.Transfer(from, taxWallet, expectpedTotalFee);
+        emit Transfer(from, to, amount - expectpedTotalFee);
+        emit Transfer(from, taxWallet, expectpedTotalFee);
+        treasuryLari.transfer(to, amount);
+        uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfterTransfer, 0);
+        uint256 balanceOfToAfterTransfer = treasuryLari.balanceOf(to);
+        assertEq(balanceOfToAfterTransfer, amount - expectpedTotalFee);
+        uint256 balanceOfTaxWallet = treasuryLari.balanceOf(taxWallet);
+        assertEq(balanceOfTaxWallet, totalFee);
+        vm.stopPrank();
+    }
+    function testIfSBFeeFeatureWorksProperlyWhileTransferringTokensIfSFeeIsEnabled()
+        public
+    {
+        uint256 sSFee = 100000;
+        uint256 sBFee = 100000;
+        bool enable = true;
+        uint256 amount = 100e18;
+        uint256 totalFee;
+        uint256 expectpedTotalFee = (amount * sBFee) /
+            treasuryLari.getFDivider();
+        totalFee += expectpedTotalFee;
+        address from = helperAddress10;
+        address to = poolAddress;
+        uint256 balanceOfFrom = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFrom, 0);
+        vm.expectEmit(address(treasuryLari));
+        emit EnabledSFee(sSFee, sBFee, enable);
+        treasuryLari.enableSFee(sSFee, sBFee, enable);
+        vm.expectEmit(address(treasuryLari));
+        emit PoolAddressAdded(poolAddress, true);
+        treasuryLari.addPoolAddress(poolAddress, true);
+        vm.expectEmit(address(treasuryLari));
+        emit Transfer(address(0), TLWallet, amount);
+        treasuryLari.mint(amount);
+        vm.startPrank(TLWallet);
+        vm.expectEmit(address(treasuryLari));
+        emit Transfer(TLWallet, from, amount);
+        treasuryLari.transfer(from, amount);
+        vm.stopPrank();
+        uint256 balanceOfFromAfter = treasuryLari.balanceOf(from);
+        assertEq(balanceOfFromAfter, amount);
+        uint256 balanceOfTo = treasuryLari.balanceOf(to);
+        assertEq(balanceOfTo, 0);
+        vm.startPrank(from);
+        vm.expectEmit(address(treasuryLari));
+        emit Transfer(from, to, amount - expectpedTotalFee);
+        emit Transfer(from, taxWallet, expectpedTotalFee);
         treasuryLari.transfer(to, amount);
         uint256 balanceOfFromAfterTransfer = treasuryLari.balanceOf(from);
         assertEq(balanceOfFromAfterTransfer, 0);
@@ -923,7 +1063,7 @@ contract CounterTest is Test {
         address owner = helperAddress11;
         users.push(owner);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.UserBlocked(owner);
+        emit UserBlocked(owner);
         treasuryLari.blockUsers(users);
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20Blocked.selector, owner)
@@ -976,7 +1116,7 @@ contract CounterTest is Test {
         assertEq(actualAllowance, expectedAllowance);
         vm.startPrank(owner);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Approval(owner, spender, amount);
+        emit Approval(owner, spender, amount);
         treasuryLari.approve(spender, amount);
         vm.stopPrank();
         uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
@@ -1014,21 +1154,21 @@ contract CounterTest is Test {
         uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
         assertEq(balanceOfOwner, 0);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, owner, amount);
+        emit Transfer(TLWallet, owner, amount);
         treasuryLari.transfer(owner, amount);
         vm.stopPrank();
         vm.startPrank(owner);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Approval(owner, spender, amount);
+        emit Approval(owner, spender, amount);
         treasuryLari.approve(spender, amount);
         vm.stopPrank();
         vm.startPrank(spender);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(owner, to, amount);
+        emit Transfer(owner, to, amount);
         treasuryLari.transferFrom(owner, to, amount);
         vm.stopPrank();
         uint256 balanceOfOwnerAfter = treasuryLari.balanceOf(owner);
@@ -1055,13 +1195,13 @@ contract CounterTest is Test {
         assertEq(currentTotalSupply, 0);
         uint256 amount = 100e18;
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         uint256 currentTotalSupplyAfter = treasuryLari.totalSupply();
         assertEq(currentTotalSupplyAfter, amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, address(0), amount);
+        emit Transfer(TLWallet, address(0), amount);
         treasuryLari.burn(amount);
         vm.stopPrank();
         uint256 currentTotalSupplyAfterBurn = treasuryLari.totalSupply();
@@ -1119,23 +1259,23 @@ contract CounterTest is Test {
         uint256 balanceOfOwner = treasuryLari.balanceOf(owner);
         assertEq(balanceOfOwner, 0);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(address(0), TLWallet, amount);
+        emit Transfer(address(0), TLWallet, amount);
         treasuryLari.mint(amount);
         uint256 balanceOfTLWallet = treasuryLari.balanceOf(TLWallet);
         assertEq(balanceOfTLWallet, amount);
         vm.startPrank(TLWallet);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(TLWallet, owner, amount);
+        emit Transfer(TLWallet, owner, amount);
         treasuryLari.transfer(owner, amount);
         vm.stopPrank();
         vm.startPrank(owner);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Approval(owner, spender, amount);
+        emit Approval(owner, spender, amount);
         treasuryLari.approve(spender, amount);
         vm.stopPrank();
         vm.startPrank(spender);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Transfer(owner, address(0), amount);
+        emit Transfer(owner, address(0), amount);
         treasuryLari.burnFrom(owner, amount);
         vm.stopPrank();
         uint256 balanceOfOwnerAfterBurn = treasuryLari.balanceOf(owner);
@@ -1286,7 +1426,7 @@ contract CounterTest is Test {
         uint256 actualAllowance = treasuryLari.allowance(owner, spender);
         assertEq(actualAllowance, expectedAllowance);
         vm.expectEmit(address(treasuryLari));
-        emit IERC20.Approval(owner, spender, value);
+        emit Approval(owner, spender, value);
         treasuryLari.permit(owner, spender, value, deadline, v, r, s);
         uint256 actualAllowanceAfter = treasuryLari.allowance(owner, spender);
         assertEq(actualAllowanceAfter, value);
