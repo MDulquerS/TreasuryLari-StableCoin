@@ -36,6 +36,48 @@ forge test
 
 This project is licensed under the MIT License.
 
+## Audit Scope Details
+
+- Commit Hash:
+- In scope
+
+```
+./src/
+#-- TreasuryLari.sol
+
+```
+
+- Solc Version: 0.8.18
+- Chain(s) to deploy contracts to:
+  - Tron Mainnet:
+    - TreasuryLari.sol
+  - Sepolia Testnet:
+    - TreasuryLari.sol
+
+## Actors/Roles
+
+- Smart contract Owner: The deployer who can:
+  - pause/unpause the Token in the event of an emergency
+  - Block/unblock suspicious wallet
+  - Also can do around 16 onlyOwner functions call.
+-
+- Users: User can use this as regular Token smart contract.
+
+## Known Issues(Auditor's insight will be appreciated)
+
+- We are aware the TreasuryLari smart contract is centralized and owned by a single user/wallet/deployer, aka it is centralized.
+- We are missing some zero address checks/input validation intentionally to save gas.
+- This smart contract will be deployed on the Tron Network, and the Tron network still lacks PUSH0 instruction implementation. We will use the 0.8.18 pragma to avoid the PUSH0 instruction.
+- The developer hardcoded some of OpenZeppelin's code instead of importing as some of them require custom logic implementation and to remove unused code.
+- uses timestamp for comparisons
+- uses assembly
+- Some variables is not in mixedCase
+- FALLBACK_SENTINEL uses literals with too many digits
+- Uninitialized State Variables (\_versionFallback, and \_nameFallback)
+- ecrecover is susceptible to signature malleability => Openzeppelin's library is used by hardcode.
+- Event is missing indexed fields
+- We have magic numbers defined as literals that should be constants(Mainly on OpenZeppelin library code).
+
 ## Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**

@@ -9,8 +9,6 @@
 //  ⚡ GELT: Powering the Future of Finance ⚡
 
 // SPDX-License-Identifier: MIT
-// This smart contract will be deployed on the Tron Network, and the Tron network still lacks PUSH0 instruction implementation.
-// We will use the following pragma to avoid the PUSH0 instruction.
 pragma solidity 0.8.18;
 
 /**
