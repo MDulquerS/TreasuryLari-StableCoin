@@ -2067,6 +2067,9 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
      * @param newWallet The new treasury wallet address.
      */
     function updateTLWallet(address newWallet) external onlyOwner {
+        if (newWallet == address(0)) {
+            revert ZeroAddress();
+        }
         if (TLWallet == newWallet) {
             revert ExactDetails();
         }
@@ -2079,6 +2082,9 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
      * @param newWallet The new tax wallet address.
      */
     function updateTaxWallet(address newWallet) external onlyOwner {
+        if (newWallet == address(0)) {
+            revert ZeroAddress();
+        }
         if (taxWallet == newWallet) {
             revert ExactDetails();
         }
