@@ -2121,6 +2121,10 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
         if (_rtFee > TWENTY_P) {
             revert MoreThan20Percent();
         }
+        if (_isEnable && _rtFee == 0) {
+            revert AmountZero();
+        }
+
         rTFee = _rtFee;
         isRTFeeEnabled = _isEnable;
         emit EnabledRTFee(_rtFee, _isEnable);
@@ -2146,6 +2150,9 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
         }
         if (_sBFee > TWENTY_P) {
             revert MoreThan20Percent();
+        }
+        if (_isEnable && (_sSFee == 0 || _sBFee == 0)) {
+            revert AmountZero();
         }
         sSFee = _sSFee;
         sBFee = _sBFee;
