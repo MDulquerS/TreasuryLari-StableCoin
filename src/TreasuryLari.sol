@@ -2022,7 +2022,8 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
      */
 
     function blockUsers(address[] memory users) external onlyOwner {
-        for (uint256 i = 0; i < users.length; ) {
+        uint256 ulength = users.length;
+        for (uint256 i = 0; i < ulength; ) {
             bool isBlocked = _blockUser(users[i]);
             if (isBlocked) {
                 revert ExactDetails();
@@ -2038,7 +2039,8 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
      * @param users Array of addresses to unblock.
      */
     function unblockUsers(address[] memory users) external onlyOwner {
-        for (uint256 i = 0; i < users.length; ) {
+        uint256 ulength = users.length;
+        for (uint256 i = 0; i < ulength; ) {
             bool isBlocked = _unblockUser(users[i]);
             if (!isBlocked) {
                 revert ExactDetails();
@@ -2105,13 +2107,10 @@ contract TreasuryLari is ERC20, Ownable, ERC20Permit, TreasuryLariErrors {
         if (tbalance <= 0) {
             revert AmountZero();
         }
-        (bool success, bytes memory data) = address(token).call(
-            abi.encodeWithSelector(IERC20.transfer.selector, to, tbalance)
-        );
-
-        if (!success || (data.length != 0 && !abi.decode(data, (bool)))) {
-            revert TransferFailed();
+        if (to == address(0)) {
+            revert ZeroAddress();
         }
+        IERC20(token).transfer(to, tbalance);
     }
     /**
      * @notice Enables or disables the rTFee and sets its value.
